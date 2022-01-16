@@ -1,3 +1,6 @@
+pub mod request;
+pub mod response;
+
 use std::future::Future;
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
@@ -5,6 +8,8 @@ use tokio::sync::Semaphore;
 use tokio::time::{self, Duration};
 use tracing::{debug, error, info};
 
+use crate::config::init;
+use crate::http::request::HttpRequest;
 use crate::types::Result;
 
 pub struct HttpServer {
@@ -17,7 +22,11 @@ impl HttpServer {
         loop {
             self.limit_connections.acquire().await.unwrap().forget();
 
-            let socket = self.accept().await?;
+            let socket = &mut self.accept().await?;
+
+            let request = HttpRequest::from(socket).await;
+
+            info!("request is: {:?}", request.resource);
         }
     }
 
@@ -42,6 +51,8 @@ impl HttpServer {
 }
 
 pub async fn run<T: Future>(listener: TcpListener, shutdown: T) {
+    init();
+
     let server = HttpServer {
         listener,
         limit_connections: Arc::new(Semaphore::new(500)),

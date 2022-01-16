@@ -1,4 +1,6 @@
+mod config;
 mod http;
+mod router;
 mod types;
 
 use tokio::net::TcpListener;
@@ -12,6 +14,4 @@ async fn main() {
     spawn(async move {
         http::run(listener, signal::ctrl_c()).await;
     });
-
-    println!("Hello, world!");
 }

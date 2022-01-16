@@ -115,3 +115,29 @@ impl Into<String> for HttpResponse {
         )
     }
 }
+
+#[test]
+fn test_response_tostring() {
+    let expected_resp_string = "HTTP/1.1 200 OK\r\n\
+    Content-Type: text/html\r\n\
+    Cookie: name=akita\r\n\
+    Host: localhost:8080\r\n\
+    Content-Length: 4\r\n\
+    \r\n\
+    yyyy";
+    let mut headers = HashMap::<String, String>::new();
+    headers.insert("Content-Type".into(), "text/html".into());
+    headers.insert("Cookie".into(), "name=akita".into());
+    headers.insert("Host".into(), "localhost:8080".into());
+
+    let resp_body = String::from("yyyy");
+
+    let response = HttpResponse::new(
+        "HTTP/1.1".to_string(),
+        "200".to_string(),
+        Some(headers),
+        Some(resp_body),
+    );
+    let actual_resp_string: String = response.into();
+    assert_eq!(expected_resp_string, actual_resp_string);
+}

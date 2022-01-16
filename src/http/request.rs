@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, BufReader};
 use tokio::net::TcpStream;
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Method {
     GET,
     POST,
@@ -47,6 +48,7 @@ impl From<&str> for Version {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub struct HttpRequest {
     pub method: Method,
     pub version: Version,
@@ -114,6 +116,34 @@ impl HttpRequest {
     }
 }
 
+impl From<String> for HttpRequest {
+    fn from(diagram: String) -> Self {
+        let mut request = HttpRequest::default();
+        let mut headers = HashMap::<String, String>::new();
+        for line in diagram.lines() {
+            if line.contains("HTTP") {
+                // process request line.
+                println!("request line is: {}", line);
+                let (method, resource, version) = process_req_line(line);
+                request.method = method;
+                request.resource = resource;
+                request.version = version;
+            } else if line.contains(":") {
+                // process request header;
+                let (key, value) = process_request_header(line);
+                headers.insert(key, value);
+            } else if line.is_empty() {
+                // skip the line before msg body.
+            } else {
+                // process msg body;
+                request.msg_body = Some(line.to_string());
+            }
+        }
+        request.headers = Some(headers);
+        request
+    }
+}
+
 fn process_request_header(line: &str) -> (String, String) {
     let mut seg_iter = line.split(":");
     (
@@ -129,4 +159,43 @@ fn process_req_line(line: &str) -> (Method, Resource, Version) {
         Resource::Path(segments.next().unwrap().to_string()),
         segments.next().unwrap().into(),
     )
+}
+
+#[test]
+fn test_method_match() {
+    let m: Method = "GET".into();
+    assert_eq!(Method::GET, m);
+    let m: Method = "posT".into();
+    assert_eq!(Method::POST, m);
+}
+
+#[test]
+fn test_version_match() {
+    let v: Version = "HTTP/1.1".into();
+    assert_eq!(v, Version::HTTP1_1);
+
+    let v: Version = "Http/2.0".into();
+    assert_eq!(v, Version::HTTP2_0);
+
+    let v: Version = "HTTP/1.3".into();
+    assert_eq!(v, Version::UNKNOWN);
+}
+
+#[test]
+fn test_request_parse() {
+    let req = "GET /index.js HTTP/1.1\r\nHost: localhost\r\nContent-Type: text/html\r\n\r\nxxxx";
+    let actual_request: HttpRequest = String::from(req).into();
+    let expected_request = HttpRequest {
+        method: Method::GET,
+        resource: Resource::Path("/index.js".to_string()),
+        version: Version::HTTP1_1,
+        headers: {
+            let mut h = HashMap::<String, String>::new();
+            h.insert("Host".to_string(), " localhost".to_string());
+            h.insert("Content-Type".to_string(), " text/html".to_string());
+            Some(h)
+        },
+        msg_body: Some(String::from("xxxx")),
+    };
+    assert_eq!(expected_request, actual_request);
 }
